@@ -1,6 +1,16 @@
 from datetime import datetime, time, timedelta
 import pymysql
 
+MINI_REPORT = """
+скоординировано   {s.done}
+создано           {s.created}
+просрочено        {s.expired}"""
+
+START_REPORT = """Доброе утро!
+количество заявок созданных за ночь: {}"""
+
+ORDERS_REPORT = """[order {0}](https://site.com/orders/{0})"""
+
 
 class Report:
     _start_time = time(9, 0)
@@ -18,18 +28,39 @@ class Report:
             raise ValueError("database settings is bad!")
         self._cursor = self._db.cursor()
         now = datetime.now()
-        self.current_time = now.time()
+        t = now.time()
+        self.current_time = time(t.hour, t.minute)
         self.today = now.date()
+        yesterday = now - timedelta(days=1)
+        self.night = datetime(
+            yesterday.year, yesterday.month, yesterday.day, 19)
+        self.yesterday = yesterday 
+        self.today_at5 = datetime(now.year, now.month, now.day, 5)
+        self.ten_minutes_ago = now - timedelta(minutes=10)
         if self.today.weekday() in (5, 6):
             self._stop_time = time(16, 0)
 
+    def get_mini_report(self):
+        return MINI_REPORT.format(s=self)
+
+    def get_orders_report(self):
+        result = ""
+        for i in self.orders:
+            result += ORDERS_REPORT.format(i)
+        return result
+
     def get_report(self):
-        pass
+        if self .current_time < self._start_time or self.current_time > self._stop_time:
+            return ""
+        if self.current_time == self._start_time:
+            return self.at_start_time()
+        if self.current_time == self._stop_time:
+            return self.at_stop_time()
+        if self.current_time <= self._start_time + timedelta(hours=1):
+            return self.at_morning()
+        return self.at_daytime()
 
-    def get_orders_list(self, created_from, created_to):
-        pass
-
-    def _get_from_db(self, created_from, created_to):
+    def _get_counts_from_db(self, created_from, created_to):
         is_successful = self._cursor.execute("""SELECT COUNT(1) FROM suz_orders WHERE
                            coordination=0 AND
                            executor_id=0 AND
@@ -48,6 +79,7 @@ class Report:
                            coordination!=0""".format(created_to, self.today + self.current_time))
         self.done = self._cursor.fetchone()[0] if is_successful else 0
 
+    def _get_orders_from_db(self, created_from, created_to):
         if self.expired:
             is_successful = self._cursor.execute("""SELECT id FROM suz_orders WHERE
                            coordination=0 AND
@@ -61,13 +93,22 @@ class Report:
         self._db.close()
 
     def at_start_time(self):
-        pass
+        self._get_counts_from_db(self.night, self.night)
+        self._db.close()
+        return START_REPORT.format(self.created)
 
     def at_morning(self):
-        pass
+        self._get_counts_from_db(self.today_at5, self.ten_minutes_ago)
+        self._get_orders_from_db(self.today_at5, self.ten_minutes_ago)
+        return "за посление 10 минут:\n" + self.get_mini_report() + self.get_orders_report()
 
     def at_daytime(self):
-        pass
+        self._get_counts_from_db(self.night, self.ten_minutes_ago)
+        self._get_orders_from_db(self.night, self.ten_minutes_ago)
+        return "за посление 10 минут:\n" +  self.get_mini_report() + self.get_orders_report()
 
     def at_stop_time(self):
-        pass
+        self._get_counts_from_db(self.yesterday, self.yesterday)
+        self._get_orders_from_db(self.yesterday, self.yesterday)
+        return "за день:\n" +  self.get_mini_report() + self.get_orders_report()
+
