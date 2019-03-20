@@ -23,7 +23,7 @@ class Report:
     def __init__(self, settings: dict):
         pymysql.install_as_MySQLdb()
         try:
-            self._db = pymysql.connect(**settings.get('db', {}))
+            self._db = pymysql.connect(**settings)
         except Exception:
             raise ValueError("database settings is bad!")
         self._cursor = self._db.cursor()
@@ -34,7 +34,7 @@ class Report:
         yesterday = now - timedelta(days=1)
         self.night = datetime(
             yesterday.year, yesterday.month, yesterday.day, 19)
-        self.yesterday = yesterday 
+        self.yesterday = yesterday
         self.today_at5 = datetime(now.year, now.month, now.day, 5)
         self.ten_minutes_ago = now - timedelta(minutes=10)
         if self.today.weekday() in (5, 6):
@@ -71,12 +71,12 @@ class Report:
         is_successful = self._cursor.execute("""SELECT COUNT(1) FROM suz_orders WHERE
                            order_created_datetime > '{}' AND
                            order_created_datetime < '{}'
-                           """.format(created_to, self.today + self.current_time))
+                           """.format(created_to, datetime.now()))
         self.created = self._cursor.fetchone()[0] if is_successful else 0
         is_successful = self._cursor.execute("""SELECT COUNT(1) FROM suz_orders WHERE
                            order_created_datetime > '{}' AND
                            order_created_datetime < '{}' AND
-                           coordination!=0""".format(created_to, self.today + self.current_time))
+                           coordination!=0""".format(created_to, datetime.now()))
         self.done = self._cursor.fetchone()[0] if is_successful else 0
 
     def _get_orders_from_db(self, created_from, created_to):
@@ -105,10 +105,9 @@ class Report:
     def at_daytime(self):
         self._get_counts_from_db(self.night, self.ten_minutes_ago)
         self._get_orders_from_db(self.night, self.ten_minutes_ago)
-        return "за посление 10 минут:\n" +  self.get_mini_report() + self.get_orders_report()
+        return "за посление 10 минут:\n" + self.get_mini_report() + self.get_orders_report()
 
     def at_stop_time(self):
         self._get_counts_from_db(self.yesterday, self.yesterday)
         self._get_orders_from_db(self.yesterday, self.yesterday)
-        return "за день:\n" +  self.get_mini_report() + self.get_orders_report()
-
+        return "за день:\n" + self.get_mini_report() + self.get_orders_report()
