@@ -56,7 +56,7 @@ class Report:
             return self.at_start_time()
         if self.current_time == self._stop_time:
             return self.at_stop_time()
-        if self.current_time <= self._start_time + timedelta(hours=1):
+        if self.current_time <= time(10, 1):
             return self.at_morning()
         return self.at_daytime()
 
