@@ -8,6 +8,6 @@ if __name__ == '__main__':
                 'db': 'app_db',
                 'charset': 'utf8'})
     message = r.get_report()
-    if not len(message):
-        exit(0)
-    args = ['tg', 'Telegram group', message, '', '--group']
+    if r.expired > 0 and len(message):
+        args = ['tg', 'Telegram group', message, '', '--group']
+        send(args)
